@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevSecOps CI/CD Pipeline</title>
+<meta name="description" content="An end-to-end Jenkins DevSecOps pipeline with SonarQube, Trivy, HashiCorp Vault, Docker and Kubernetes, built for the C-DAC PG-DITISS programme.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #E9EEF2;
+    --sheet: #F7F9FA;
+    --ink: #172433;
+    --muted: #4F6070;
+    --rail: #9FB0BE;
+    --pass: #1E7458;
+    --gate: #B9790A;
+    --gate-soft: #F6E7C8;
+    --vault: #3F4FA3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121A23;
+      --sheet: #18222D;
+      --ink: #E4EAEF;
+      --muted: #9AAAB8;
+      --rail: #3B4B5A;
+      --pass: #4FBF94;
+      --gate: #E3A73A;
+      --gate-soft: #2E2615;
+      --vault: #98A5EC;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Archivo", system-ui, sans-serif;
+    font-variation-settings: "wdth" 100;
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:hover { text-decoration-thickness: 2px; }
+  a:focus-visible { outline: 3px solid var(--gate); outline-offset: 3px; border-radius: 2px; }
+
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  /* Hero */
+  header { padding: 72px 0 40px; }
+  h1 {
+    margin: 0;
+    font-size: clamp(2.6rem, 8vw, 5.4rem);
+    line-height: 0.92;
+    font-weight: 800;
+    font-variation-settings: "wdth" 66;
+    letter-spacing: -0.01em;
+    max-width: 12ch;
+  }
+  .lede { margin: 24px 0 0; max-width: 58ch; font-size: 1.15rem; color: var(--muted); }
+  .links { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+  .btn {
+    display: inline-block;
+    padding: 11px 18px;
+    background: var(--ink);
+    color: var(--paper);
+    text-decoration: none;
+    font-weight: 600;
+    border-radius: 3px;
+  }
+  .btn:hover { background: var(--pass); color: #fff; }
+
+  /* The pipeline track: the one bold element */
+  .track-section { padding: 24px 0 56px; }
+  h2 {
+    font-size: 1.9rem;
+    font-weight: 750;
+    font-variation-settings: "wdth" 80;
+    line-height: 1.1;
+    margin: 0 0 8px;
+  }
+  .section-intro { margin: 0 0 32px; color: var(--muted); max-width: 60ch; }
+
+  ol.track { list-style: none; margin: 0; padding: 0; position: relative; }
+  ol.track::before {
+    content: "";
+    position: absolute;
+    left: 21px; top: 8px; bottom: 8px;
+    width: 4px;
+    background: var(--rail);
+  }
+  .stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 0 20px;
+    padding: 14px 0;
+  }
+  .node {
+    position: relative;
+    z-index: 1;
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: var(--sheet);
+    border: 4px solid var(--pass);
+    display: grid; place-items: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    font-variation-settings: "wdth" 75;
+  }
+  .stage h3 {
+    margin: 2px 0 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-variation-settings: "wdth" 85;
+    line-height: 1.2;
+  }
+  .tool { color: var(--muted); font-weight: 500; }
+  .stage p { margin: 4px 0 0; max-width: 62ch; }
+
+  /* Gates: where the pipeline can stop */
+  .stage.gate .node {
+    border-radius: 6px;
+    transform: rotate(45deg) scale(0.86);
+    border-color: var(--gate);
+    background: var(--gate-soft);
+  }
+  .stage.gate .node span { transform: rotate(-45deg); }
+  .stage.gate .body {
+    background: var(--gate-soft);
+    border-left: 4px solid var(--gate);
+    padding: 12px 16px;
+    margin-left: -4px;
+  }
+  .stop { display: block; margin-top: 6px; font-weight: 600; color: var(--gate); }
+  @media (prefers-color-scheme: dark) { .stop { color: var(--gate); } }
+
+  /* Secrets: Vault feeds into the push stage */
+  .stage.secret .node { border-color: var(--vault); }
+  .from-vault { display: block; margin-top: 6px; font-weight: 600; color: var(--vault); }
+
+  .stage.notify .node { border-style: dashed; }
+
+  /* Lower sections */
+  section.plain { padding: 40px 0; border-top: 2px solid var(--rail); }
+  .two { display: grid; grid-template-columns: 1fr; gap: 32px; }
+  @media (min-width: 760px) { .two { grid-template-columns: 1fr 1fr; gap: 48px; } }
+  ul.clean { margin: 12px 0 0; padding-left: 1.1em; }
+  ul.clean li { margin: 8px 0; max-width: 60ch; }
+  ul.clean strong { font-weight: 650; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.86em;
+    background: var(--sheet);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  figure { margin: 20px 0 0; }
+  figure img { display: block; width: 100%; height: auto; background: #fff; border: 2px solid var(--rail); }
+  figcaption { margin-top: 8px; color: var(--muted); font-size: 0.92rem; }
+  .stack { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+  .stack li { padding: 4px 10px; border: 2px solid var(--rail); border-radius: 3px; font-weight: 500; font-size: 0.95rem; }
+
+  footer { padding: 32px 0 56px; border-top: 2px solid var(--rail); color: var(--muted); font-size: 0.95rem; }
+  footer p { margin: 4px 0; max-width: 70ch; }
+
+  @media (max-width: 520px) {
+    header { padding-top: 48px; }
+    .stage { grid-template-columns: 40px 1fr; gap: 0 14px; }
+    .node { width: 40px; height: 40px; }
+    ol.track::before { left: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>DevSecOps CI/CD pipeline</h1>
+    <p class="lede">A Jenkins pipeline that takes a Spring Boot app from a Git commit to Kubernetes, with code analysis, a quality gate, container image scanning and Vault-managed secrets along the way. I built it as my project for the C-DAC PG Diploma in IT Infrastructure, Systems and Security (PG-DITISS).</p>
+    <div class="links">
+      <a class="btn" href="https://github.com/shubhamvir/ditiss-project">View the code on GitHub</a>
+      <a href="https://github.com/shubhamvir/ditiss-project#how-to-run-it">How to run it</a>
+    </div>
+  </header>
+
+  <section class="track-section" aria-labelledby="stages-heading">
+    <h2 id="stages-heading">What happens on every run</h2>
+    <p class="section-intro">Each stage runs in order. If one fails, the pipeline stops there and Slack gets the result.</p>
+
+    <ol class="track">
+      <li class="stage">
+        <div class="node"><span>1</span></div>
+        <div class="body">
+          <h3>Checkout <span class="tool">with Git</span></h3>
+          <p>Jenkins pulls the latest code from GitHub.</p>
+        </div>
+      </li>
+      <li class="stage">
+        <div class="node"><span>2</span></div>
+        <div class="body">
+          <h3>Build and unit test <span class="tool">with Maven and JUnit</span></h3>
+          <p>Compiles the app, runs the unit tests and publishes the test results in Jenkins.</p>
+        </div>
+      </li>
+      <li class="stage">
+        <div class="node"><span>3</span></div>
+        <div class="body">
+          <h3>Code analysis <span class="tool">with SonarQube</span></h3>
+          <p>Static analysis for bugs, code smells and security issues. Results are stored in SonarQube backed by PostgreSQL.</p>
+        </div>
+      </li>
+      <li class="stage gate">
+        <div class="node"><span>4</span></div>
+        <div class="body">
+          <h3>Quality gate <span class="tool">in SonarQube</span></h3>
+          <p>SonarQube sends its verdict back to Jenkins through a webhook.</p>
+          <span class="stop">The pipeline stops here if the code fails the gate.</span>
+        </div>
+      </li>
+      <li class="stage">
+        <div class="node"><span>5</span></div>
+        <div class="body">
+          <h3>Docker build</h3>
+          <p>A multi-stage build produces a small image that runs the app as a non-root user.</p>
+        </div>
+      </li>
+      <li class="stage">
+        <div class="node"><span>6</span></div>
+        <div class="body">
+          <h3>Image scan <span class="tool">with Trivy</span></h3>
+          <p>Scans the image for known vulnerabilities (CVEs) and writes an HTML report.</p>
+        </div>
+      </li>
+      <li class="stage">
+        <div class="node"><span>7</span></div>
+        <div class="body">
+          <h3>Store the scan report <span class="tool">in AWS S3</span></h3>
+          <p>The Trivy report is uploaded to an S3 bucket so it can be reviewed later.</p>
+        </div>
+      </li>
+      <li class="stage secret">
+        <div class="node"><span>8</span></div>
+        <div class="body">
+          <h3>Push the image <span class="tool">to Docker Hub</span></h3>
+          <p>The image is tagged with the build number and pushed.</p>
+          <span class="from-vault">Docker Hub credentials come from HashiCorp Vault at runtime, never from the Jenkinsfile.</span>
+        </div>
+      </li>
+      <li class="stage">
+        <div class="node"><span>9</span></div>
+        <div class="body">
+          <h3>Deploy <span class="tool">to Kubernetes</span></h3>
+          <p>Rolls out the new image as a Deployment, exposed through a NodePort Service.</p>
+        </div>
+      </li>
+      <li class="stage notify">
+        <div class="node" aria-hidden="true"></div>
+        <div class="body">
+          <h3>Notify <span class="tool">in Slack</span></h3>
+          <p>After every run, success or failure, Jenkins posts the job name, build number and a link to the build.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="plain" aria-labelledby="stack-heading">
+    <h2 id="stack-heading">Tools</h2>
+    <ul class="stack">
+      <li>Jenkins</li><li>Maven</li><li>JUnit</li><li>SonarQube</li><li>PostgreSQL</li><li>Docker</li><li>Docker Hub</li><li>Trivy</li><li>HashiCorp Vault</li><li>AWS S3</li><li>Kubernetes</li><li>Slack</li><li>Java 11</li><li>Spring Boot</li>
+    </ul>
+    <figure>
+      <img src="architecture.png" alt="Architecture diagram: a developer commits to GitHub, Jenkins runs build, unit test, SonarQube analysis and quality gate, builds and scans the Docker image with Trivy, uploads the report to cloud storage, pushes to Docker Hub with secrets from Vault, and deploys to Kubernetes, with Slack notifications on failures." width="1394" height="1078" loading="lazy">
+      <figcaption>Architecture diagram from the reference project.</figcaption>
+    </figure>
+  </section>
+
+  <section class="plain" aria-labelledby="next-heading">
+    <div class="two">
+      <div>
+        <h2 id="next-heading">What I would improve next</h2>
+        <p class="section-intro" style="margin-bottom:0">Reviewing my own pipeline as a security reviewer would, these are the changes I would make before using it in production.</p>
+      </div>
+      <ul class="clean">
+        <li><strong>Fail on serious vulnerabilities.</strong> Trivy only reports today. Adding <code>--exit-code 1 --severity HIGH,CRITICAL</code> would turn the scan into a second gate.</li>
+        <li><strong>Secure the Vault connection.</strong> Run Vault over TLS with certificate verification switched on.</li>
+        <li><strong>Replace the deprecated deploy plugin</strong> with <code>kubectl</code>, Helm or a GitOps tool such as Argo CD.</li>
+        <li><strong>Scan earlier.</strong> Add secret scanning with Gitleaks and dependency scanning with OWASP Dependency-Check.</li>
+        <li><strong>Harden the deployment</strong> with resource limits, a restrictive <code>securityContext</code> and a read-only root filesystem.</li>
+        <li><strong>Sign the images</strong> with cosign and deploy by digest instead of the <code>latest</code> tag.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>Based on the reference project <a href="https://github.com/praveensirvi1212/DevSecOps-project">praveensirvi1212/DevSecOps-project</a>, which provided the pipeline design and sample application.</p>
+  </footer>
+
+</div>
+</body>
+</html>

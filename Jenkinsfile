@@ -6,7 +6,7 @@ pipeline {
     stages {
         stage('Checkout git') {
             steps {
-               git branch: 'main', url: 'https://github.com/praveensirvi1212/DevSecOps-project'
+               git branch: 'main', url: 'https://github.com/shubhamvir/ditiss-project'
             }
         }
         
@@ -40,13 +40,13 @@ pipeline {
         
         stage('Docker  Build') {
             steps {
-      	        sh 'docker build -t praveensirvi/sprint-boot-app:v1.$BUILD_ID .'
-                sh 'docker image tag praveensirvi/sprint-boot-app:v1.$BUILD_ID praveensirvi/sprint-boot-app:latest'
+      	        sh 'docker build -t shubhamvir/spring-boot-app:v1.$BUILD_ID .'
+                sh 'docker image tag shubhamvir/spring-boot-app:v1.$BUILD_ID shubhamvir/spring-boot-app:latest'
             }
         }
         stage('Image Scan') {
             steps {
-      	        sh ' trivy image --format template --template "@/usr/local/share/trivy/templates/html.tpl" -o report.html praveensirvi/sprint-boot-app:latest '
+      	        sh ' trivy image --format template --template "@/usr/local/share/trivy/templates/html.tpl" -o report.html shubhamvir/spring-boot-app:latest '
             }
         }
         stage('Upload Scan report to AWS S3') {
@@ -57,10 +57,10 @@ pipeline {
         stage('Docker  Push') {
             steps {
                 withVault(configuration: [skipSslVerification: true, timeout: 60, vaultCredentialId: 'vault-cred', vaultUrl: 'http://your-vault-server-ip:8200'], vaultSecrets: [[path: 'secrets/creds/docker', secretValues: [[vaultKey: 'username'], [vaultKey: 'password']]]]) {
-                    sh "docker login -u ${username} -p ${password} "
-                    sh 'docker push praveensirvi/sprint-boot-app:v1.$BUILD_ID'
-                    sh 'docker push praveensirvi/sprint-boot-app:latest'
-                    sh 'docker rmi praveensirvi/sprint-boot-app:v1.$BUILD_ID praveensirvi/sprint-boot-app:latest'
+                    sh 'echo "$password" | docker login -u "$username" --password-stdin'
+                    sh 'docker push shubhamvir/spring-boot-app:v1.$BUILD_ID'
+                    sh 'docker push shubhamvir/spring-boot-app:latest'
+                    sh 'docker rmi shubhamvir/spring-boot-app:v1.$BUILD_ID shubhamvir/spring-boot-app:latest'
                 }
             }
         }
